@@ -15,6 +15,7 @@
  */
 package keywhiz;
 
+import com.codahale.metrics.health.HealthCheck;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
@@ -25,6 +26,7 @@ import io.dropwizard.db.DataSourceFactory;
 import io.dropwizard.db.ManagedDataSource;
 import io.dropwizard.java8.auth.Authenticator;
 import io.dropwizard.setup.Environment;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Clock;
 import keywhiz.auth.BouncyCastle;
@@ -47,6 +49,7 @@ import keywhiz.service.daos.SecretController;
 import keywhiz.service.daos.SecretDAO;
 import keywhiz.service.daos.SecretSeriesDAO;
 import org.jooq.DSLContext;
+import org.jooq.exception.DataAccessException;
 import org.jooq.impl.DSL;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -84,16 +87,29 @@ public class ServiceModule extends AbstractModule {
         bindSecretGenerator("templated", TemplatedSecretGenerator.class);
       }
     });
+
+    // Add Dropwizard health check for readonly database
+    environment.healthChecks().register("postgres-readonly-health", new HealthCheck() {
+      @Override protected Result check() {
+        try (Connection connection = readonlyDataSource(environment, config).getConnection()) {
+          DSLContext readOnlyDB = DSL.using(connection);
+          readOnlyDB.selectOne().execute();
+          return Result.healthy();
+        } catch (DataAccessException|SQLException e) {
+          return Result.unhealthy("Unhealthy connection to readonly database.");
+        }
+      }
+    });
+
+    /**
+     * TODO: make sure that the read-write health check does not impact availability of
+     * the service but logs something. Optionally, implement fallback to read-write if only
+     * the readonly connection is unhealthy.
+     */
   }
 
   // ManagedDataSource
 
-  /**
-   * TODO: make sure that the read-write health check does not impact availability of
-   * the service.
-   * TODO: make sure that the readonly has a health check and marks the service as unhealthy if
-   * the connection is down. Optionally, fallback to read-write if that connection is healthy.
-   */
   @Provides @Singleton ManagedDataSource dataSource(Environment environment,
       KeywhizConfig config) {
     DataSourceFactory dataSourceFactory = config.getDataSourceFactory();
