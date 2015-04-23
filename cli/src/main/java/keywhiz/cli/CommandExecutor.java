@@ -116,8 +116,15 @@ public class CommandExecutor {
       encapsulatedClient = ClientUtils.sslOkHttpClient(ImmutableList.of());
       client = new KeywhizClient(mapper, ClientUtils.hostBoundWrappedHttpClient(host,
           encapsulatedClient));
-      char[] password = ClientUtils.readPassword();
-      client.login(USER_NAME.value(), password);
+
+      String user;
+      if ((config.user != null) && !config.user.isEmpty()) {
+        user = config.user;
+      } else {
+        user = USER_NAME.value();
+      }
+      char[] password = ClientUtils.readPassword(user);
+      client.login(user, password);
       Arrays.fill(password, '\0');
     }
     // Save/update the cookies if we logged in successfully

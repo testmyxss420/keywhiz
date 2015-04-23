@@ -25,5 +25,8 @@ public class CliConfiguration {
 
   @Parameter(names = { "-U", "--url" }, description = "Base URL of server")
   public String url;
+
+  @Parameter(names = "--user", description = "User to login as")
+  public String user;
 }
 

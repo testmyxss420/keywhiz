@@ -180,12 +180,13 @@ public class ClientUtils {
    * For this reason, it is suggested that the user login prior to using functionality such as
    * input redirection since this could result in a null console.
    *
+   * @param user username we are prompting a password for
    * @return user-inputted password
    */
-  public static char[] readPassword() {
+  public static char[] readPassword(String user) {
     Console console = System.console();
     if (console != null) {
-      System.out.format("password for '%s': ", USER_NAME.value());
+      System.out.format("password for '%s': ", user);
       return System.console().readPassword();
     } else {
       throw new RuntimeException("Please login by running a command without piping.\n"
